@@ -115,10 +115,14 @@ Actors Should Only Do One Thing
 * Create a supervisor at every level of your hierarchy
 
 !SLIDE transition=blindY
-# Conflated Supervision
+# Conflated Supervisors
+
+<img src="conflated_supervisors.png" class="illustration" note="final slash needed"/>
 
 !SLIDE transition=blindY
-# Explicit Supervision
+# Explicit Supervisors
+
+<img src="explicit_supervisors.png" class="illustration" note="final slash needed"/>
 
 !SLIDE transition=blindY
 # RULE
