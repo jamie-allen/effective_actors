@@ -92,14 +92,19 @@ github.com/jamie-allen
 # Effective Actors
 
 * Best practices based on several years of actor development
-* Helpful hints for reasoning about actors in production
+* Helpful hints for reasoning about actors at runtime
 
 !SLIDE transition=blindY
-# RULE: Single Responsibility Principle
+# RULE
+
+Actors Should Only Do One Thing
+
+!SLIDE transition=blindY
+# Single Responsibility Principle
 
 * Do not conflate responsibilities in actors
 * Becomes hard to define the boundaries of responsibility
-* Leads to more difficult supervision as you handle more possibilities
+* Supervision becomes more difficult as you handle more possibilities
 * Debugging becomes very difficult
 
 !SLIDE transition=blindY
@@ -116,13 +121,18 @@ github.com/jamie-allen
 # Explicit Supervision
 
 !SLIDE transition=blindY
-# RULE: Never Block in an Actor
+# RULE
+
+Never Block in an Actor
+
+!SLIDE transition=blindY
+# Consequences of Blocking
 .notes If you are blocking on IO/locks, then tying up a thread is a massive waste of memory resources
 
 * Passively waiting when that thread can be doing other things
 * Eventually results in actor starvation as thread pool dries up
 * Horrible performance
-* Massive waste of memory resources
+* Massive waste of system resources
 
 !SLIDE transition=blindY
 # Futures and Timeouts
@@ -135,45 +145,60 @@ github.com/jamie-allen
 !SLIDE transition=blindY
 # Futures
 
-	case class SumSequence(ints: Seq[Int]) { def perform = ints.reduce(_ + _) }
+	import akka.actor.{ Actor, ActorSystem, Props, Status }
+	import akka.dispatch.Future
+	import akka.pattern.ask
+	import akka.util.Timeout
+	import akka.util.duration._
 
-	object Worker extends App {
+	case class SumSequence(ints: Seq[Int])
+	class Worker extends Actor {
+	  def receive = {
+	    case s: SumSequence => sender ! (
+	      try { s.ints.reduce(_ + _) }
+	      catch { case x => Status.Failure(x) })
+	  }
+	}
+
+	object Meh extends App {
 	  val system = ActorSystem()
-      val workActor = system.actorOf(Props[WorkActor])
+	  val worker = system.actorOf(Props[Worker])
+	  implicit val timeout: Timeout = 2 seconds
 
-	  val workFuture = workActor ? SumSequence(1 to 100)
-
-      workFuture.onComplete {
-        case Left(x: Throwable) => println("Exception: %s".format(x.getMessage))
-        case Right(y) => println("Got a result: " + y)
-      }
-    }
-
-!SLIDE transition=blindY
-# RULE: Never Send Behavior in Messages
-
-!SLIDE transition=blindY
-# RULE: Pass Copies of Data
-.notes Not important in Erlang or remote actor systems
-
-* Data can escape your scope
-* Copy the data and pass that
+	  try {
+	    val workFut = worker ? SumSequence(1 to 100)
+	    workFut.onComplete {
+	      case Left(x: Throwable) => println("Exception message from FailWork: %s".format(x.getMessage))
+	      case Right(y) => println("Got a result: " + y)
+	    }
+	  } finally {
+	    system.shutdown
+	  }
+	}
 
 !SLIDE transition=blindY
-# RULE: Name Your Actors
+# Push, not Pull
+.notes You'll be surprised at how few places require guaranteed delivery in your system when you take this route.
 
-* Better semantic logging
-* Allows for lookup
+* Start with no guarantees about delivery
+* Add guarantees only where you need them
+* Retry until you get the answer you expect
+* Switch your actor to a "nominal" state at that point
 
 !SLIDE transition=blindY
-# RULE: Do Not Optimize Prematurely
+# RULE
+
+Do Not Optimize Prematurely
+
+!SLIDE transition=blindY
+# Start Simply
 
 * Start with a simple configuration and profile
 * Use mailbox sizes to determine where to reconfigure
 * Do not parallelize until you know you need to and where
 
 !SLIDE transition=blindY
-# Start Simply
+# Initial Focus
 .notes In other words, start without using Actors!  Declarative is expressing the logic of a computation but not the control flow - no side effects, referentially transparent; Logic and Functional Programming are subsets.
 
 * Deterministic
@@ -188,56 +213,39 @@ github.com/jamie-allen
 * Add explicit locking and threads
 
 !SLIDE transition=blindY
-# RULE: Never Have Direct References to Other Actors
-.notes This is specific to JVM implementations of actors, not Erlang.  Erlang processes cannot call methods on actors, where JVM-based actors are just instances of objects.
+# Prepare for Race Conditions
 
-* Actors die
-* Doesn't prevent someone from calling into an actor with another thread
-* Akka solves this with the ActorRef abstraction
-
-!SLIDE transition=blindY
-# RULE: Never Publish "this"
+* Write actor code to be agnostic of time and order
+* Actors should only care about now, not that something happened before it
+* Actors can "become" or represent state machines to represent transitions
 
 !SLIDE transition=blindY
-# RULE: Push, not Pull
-.notes You'll be surprised at how few places require guaranteed delivery in your system when you take this route.
-
-* Start with no guarantees about delivery
-* Add guarantees only where you need them
-* Retry until you get the answer you expect
-* Switch your actor to a "nominal" state at that point
-
-!SLIDE transition=blindY
-# RULE: Externalize Business Logic
-.notes You just want to prove that your business logic works as expected, but actors are tricky this way.  Receiving a message and calculating a value can result in side effects such as creating new actors, which may be entirely unrelated from what you're trying to test.  Use integration tests to prove that actors are behaving as expected.
-
-* Use external functions to encapsulate business logic
-* Easier to unit test outside of actor context
-
-!SLIDE transition=blindY
-# RULE: Beware the Thundering Herd
+# Beware the Thundering Herd
 
 * Actor systems can be overwhelmed by "storms" of messages flying about
 * Do not pass generic messages that apply to many actors, be specific
 * Dampen actor messages if the exact same message is being handled repeatedly within a certain timeframe
 
 !SLIDE transition=blindY
-# RULE: Use Semantically Useful Logging
-.notes Yes, it makes your code ugly, and yes, it makes your logs huge.  But it's so much more readable than inline output and will pay off in a crisis.
+# RULE
+.notes Being general about actor interations will hurt you.  Be as granular as you possibly can be.
 
-* Trace-level logs should have output that you can read easily
-* Use line-breaks and indentation
-
-!SLIDE transition=blindY
-# RULE: Unique IDs for Messages
-.notes Doesn't have to be UUIDs, just something that you can have a fair amount of certainty will be unique for a reasonable period of time, such as a day.  Actor logging *should* be asynchronous, and may not reflect the order messages were handled and passed along.
-
-* Allows you to track message flow
-* When you find a problem, get the ID of the message that led to it
-* Use the ID to grep your logs and display output just for that message flow
+Be Specific in Your Intent
 
 !SLIDE transition=blindY
-# RULE: Create Specific Exceptions
+# Name Your Actors
+
+* Better semantic logging
+* Allows for lookup
+
+!SLIDE transition=blindY
+# Create Specialized Messages
+
+* Helps avoid event storms
+* ...
+
+!SLIDE transition=blindY
+# Create Specialized Exceptions
 .notes Throwing back Exception means you can't have different handling strategies for different scenarios.  If needed, you can pass data within the specific exception back to the supervisor and then provide it in the postRestart of the next actor incarnation, but don't do this without some serious consideration - by default, recompute or retrieve again first.
 
 * Don't use Exception to represent failure in an actor
@@ -245,7 +253,69 @@ github.com/jamie-allen
 * State can be transferred between incarnations
 
 !SLIDE transition=blindY
-# RULE: Monitor Everything
+# RULE
+
+Do Not Expose Your Actors
+
+!SLIDE transition=blindY
+# No Direct References to Other Actors
+.notes This is specific to JVM implementations of actors, not Erlang.  Erlang processes cannot call methods on actors, where JVM-based actors are just instances of objects.
+
+* Actors die
+* Doesn't prevent someone from calling into an actor with another thread
+* Akka solves this with the ActorRef abstraction
+
+!SLIDE transition=blindY
+# Never Publish "this"
+.notes Don't even hand out closures with ‘this’ outer reference; especially take care with Future callbacks.  Copying to local vals helps.
+
+* Don't send it anywhere
+* Don't register it anywhere
+* Particularly with future callbacks
+
+!SLIDE transition=blindY
+# Use Immutable Messages
+.notes If the encapsulation of actors is broken by exposing their mutable state to the outside, you are back in normal Java concurrency land with all the drawbacks.
+
+* Enforces which actor owns the data
+* If mutable state can escape, what is the point of using an actor?
+
+!SLIDE transition=blindY
+# Pass Copies of Mutable Data
+.notes When you do have mutable data, for whatever reason.  Comes at a cost, but it's well worth it.  If the copy on write semantics hurt your system, you'll have to find other ways to optimize.  Or get rid of the mutable state itself.
+
+* Data can escape your scope
+* Copy the data and pass that, as Erlang does (COW)
+
+!SLIDE transition=blindY
+# RULE
+
+Make Debugging Easier
+
+!SLIDE transition=blindY
+# Externalize Business Logic
+.notes You just want to prove that your business logic works as expected, but actors are tricky this way.  Receiving a message and calculating a value can result in side effects such as creating new actors, which may be entirely unrelated from what you're trying to test.  Use integration tests to prove that actors are behaving as expected.
+
+* Use external functions to encapsulate business logic
+* Easier to unit test outside of actor context
+
+!SLIDE transition=blindY
+# Use Semantically Useful Logging
+.notes Yes, it makes your code ugly, and yes, it makes your logs huge.  But it's so much more readable than inline output and will pay off in a crisis.
+
+* Trace-level logs should have output that you can read easily
+* Use line-breaks and indentation
+
+!SLIDE transition=blindY
+# Unique IDs for Messages
+.notes Doesn't have to be UUIDs, just something that you can have a fair amount of certainty will be unique for a reasonable period of time, such as a day.  Actor logging *should* be asynchronous, and may not reflect the order messages were handled and passed along.
+
+* Allows you to track message flow
+* When you find a problem, get the ID of the message that led to it
+* Use the ID to grep your logs and display output just for that message flow
+
+!SLIDE transition=blindY
+# Monitor Everything
 .notes It will hurt much more to try to add this in later.
 
 * Do it from the start
@@ -253,16 +323,10 @@ github.com/jamie-allen
 * Visual representations of actor systems at runtime are invaluable
 
 !SLIDE transition=blindY
-# RULE: Prepare for Race Conditions
-
-* Write actor code to be agnostic of time and order
-* Actors should only care if something is true, not that something happened before it
-* Actors can "become" or represent state machines to represent transitions
-
-!SLIDE transition=blindY
 # Credits
 
-* The Typesafe Team (Jonas Bonér, Viktor Klang, Roland Kuhn, Havoc Pennington)
-!SLIDE transition=blindY
-# RULE:
-
+* The Typesafe Team
+	* Jonas Bonér
+	* Viktor Klang
+	* Roland Kuhn
+	* Havoc Pennington
