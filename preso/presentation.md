@@ -153,7 +153,11 @@ github.com/jamie-allen
 # RULE: Never Send Behavior in Messages
 
 !SLIDE transition=blindY
-# RULE: Never Send Mutable Objects
+# RULE: Pass Copies of Data
+.notes Not important in Erlang or remote actor systems
+
+* Data can escape your scope
+* Copy the data and pass that
 
 !SLIDE transition=blindY
 # RULE: Name Your Actors
@@ -192,6 +196,9 @@ github.com/jamie-allen
 * Akka solves this with the ActorRef abstraction
 
 !SLIDE transition=blindY
+# RULE: Never Publish "this"
+
+!SLIDE transition=blindY
 # RULE: Push, not Pull
 .notes You'll be surprised at how few places require guaranteed delivery in your system when you take this route.
 
@@ -208,22 +215,49 @@ github.com/jamie-allen
 * Easier to unit test outside of actor context
 
 !SLIDE transition=blindY
-# RULE:
+# RULE: Beware the Thundering Herd
+
+* Actor systems can be overwhelmed by "storms" of messages flying about
+* Do not pass generic messages that apply to many actors, be specific
+* Dampen actor messages if the exact same message is being handled repeatedly within a certain timeframe
 
 !SLIDE transition=blindY
-# RULE:
+# RULE: Use Semantically Useful Logging
+.notes Yes, it makes your code ugly, and yes, it makes your logs huge.  But it's so much more readable than inline output and will pay off in a crisis.
+
+* Trace-level logs should have output that you can read easily
+* Use line-breaks and indentation
 
 !SLIDE transition=blindY
-# RULE:
+# RULE: Unique IDs for Messages
+.notes Doesn't have to be UUIDs, just something that you can have a fair amount of certainty will be unique for a reasonable period of time, such as a day.  Actor logging *should* be asynchronous, and may not reflect the order messages were handled and passed along.
+
+* Allows you to track message flow
+* When you find a problem, get the ID of the message that led to it
+* Use the ID to grep your logs and display output just for that message flow
 
 !SLIDE transition=blindY
-# RULE:
+# RULE: Create Specific Exceptions
+.notes Throwing back Exception means you can't have different handling strategies for different scenarios.  If needed, you can pass data within the specific exception back to the supervisor and then provide it in the postRestart of the next actor incarnation, but don't do this without some serious consideration - by default, recompute or retrieve again first.
+
+* Don't use Exception to represent failure in an actor
+* Specific exceptions can be handled explicitly
+* State can be transferred between incarnations
 
 !SLIDE transition=blindY
-# RULE:
+# RULE: Monitor Everything
+.notes It will hurt much more to try to add this in later.
+
+* Do it from the start
+* Use tools like JMX and Typesafe Console to monitor everything
+* Visual representations of actor systems at runtime are invaluable
 
 !SLIDE transition=blindY
-# RULE:
+# RULE: Prepare for Race Conditions
+
+* Write actor code to be agnostic of time and order
+* Actors should only care if something is true, not that something happened before it
+* Actors can "become" or represent state machines to represent transitions
 
 !SLIDE transition=blindY
 # Credits
