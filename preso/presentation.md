@@ -125,6 +125,13 @@ Actors Should Only Do One Thing
 <img src="explicit_supervisors.png" class="illustration" note="final slash needed"/>
 
 !SLIDE transition=blindY
+# Keep the Error Kernel Simple
+
+* Limit the number of supervisors you create in it
+* Helps with fault tolerance and explicit handling of errors through the hierarchy
+* Akka uses synchronous messaging to create top-level actors
+
+!SLIDE transition=blindY
 # RULE
 
 Never Block in an Actor
@@ -177,6 +184,13 @@ Never Block in an Actor
 	    }
 	  } finally { system.shutdown }
 	}
+
+!SLIDE transition=blindY
+# What If I MUST Block?
+
+* Use specialized threads that handle a blocking behavior
+* Does not affect the actor thread pool
+* Passes messages to actors to handle
 
 !SLIDE transition=blindY
 # Push, not Pull
@@ -288,6 +302,12 @@ Do Not Expose Your Actors
 
 * Data can escape your scope
 * Copy the data and pass that, as Erlang does (COW)
+
+!SLIDE transition=blindY
+# Avoid Sending Behavior
+
+* Closures make this possible (and easy)
+* Also makes it easy for state to escape
 
 !SLIDE transition=blindY
 # RULE
