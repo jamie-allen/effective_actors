@@ -1,5 +1,5 @@
 !SLIDE title-page
-## Effective Actors - JaxConf 2012
+## Effective Actors
 
 Jamie Allen
 
@@ -164,7 +164,7 @@ Never Block in an Actor
 	  }
 	}
 
-	object Meh extends App {
+	object Bootstrapper extends App {
 	  val system = ActorSystem()
 	  val worker = system.actorOf(Props[Worker])
 	  implicit val timeout: Timeout = 2 seconds
@@ -172,12 +172,10 @@ Never Block in an Actor
 	  try {
 	    val workFut = worker ? SumSequence(1 to 100)
 	    workFut.onComplete {
-	      case Left(x: Throwable) => println("Exception message from FailWork: %s".format(x.getMessage))
+	      case Left(x: Throwable) => println("Exception: %s".format(x.getMessage))
 	      case Right(y) => println("Got a result: " + y)
 	    }
-	  } finally {
-	    system.shutdown
-	  }
+	  } finally { system.shutdown }
 	}
 
 !SLIDE transition=blindY
