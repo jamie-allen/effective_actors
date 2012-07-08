@@ -141,6 +141,7 @@ Actors Should Only Do One Thing
 * Helps with fault tolerance and explicit handling of errors through the hierarchy
 * Akka uses synchronous messaging to create top-level actors
 
+!SLIDE transition=blindY
 # Failure Zones
 
 * Create "sandboxes" your actor system
@@ -212,8 +213,8 @@ Never Block in an Actor
 !SLIDE transition=blindY
 # What If I MUST Block?
 
-* Use specialized threads that handle a blocking behavior
-* Does not affect the actor thread pool
+* Use a specialized actor with its own dispatcher
+* Does not affect the thread pool of other actors
 * Passes messages to actors to handle
 
 !SLIDE transition=blindY
@@ -246,8 +247,10 @@ Do Not Optimize Prematurely
 * Immutable
 
 !SLIDE transition=blindY
-# Layer in Complexity
+# Advice from Jonas Bonér
+.notes From Jonas' Jazoon 2012 keynote speech.  Applies to your system on the whole, where actors are just one part.
 
+* Layer in complexity
 * Add indeterminism (actors and agents)
 * Add mutability in hot spots (CAS and STM)
 * Add explicit locking and threads
@@ -265,24 +268,31 @@ Do Not Optimize Prematurely
 * Actor systems can be overwhelmed by "storms" of messages flying about
 * Do not pass generic messages that apply to many actors, be specific
 * Dampen actor messages if the exact same message is being handled repeatedly within a certain timeframe
+* Tune your dispatchers and mailboxes
+	* Back-off policies
+	* Queue sizes
 
 !SLIDE transition=blindY
 # RULE
-.notes Being general about actor interations will hurt you.  Be as granular as you possibly can be.
+.notes Being general about actor interations will hurt you.  Be as granular with your messages and exceptions as you possibly can be.
 
 Be Specific in Your Intent
 
 !SLIDE transition=blindY
 # Name Your Actors
 
-* Better semantic logging
+* Allows for external configuration
 * Allows for lookup
+* Better semantic logging
 
 !SLIDE transition=blindY
 # Create Specialized Messages
 
-* Helps avoid event storms
-* ...
+* Non-specific messages about general events are dangerous
+	* Example: "AccountsUpdated"
+* Can result in "event storms" as all actors react to them
+* Use specific messages forwarded to actors for handling
+	* Example "AccountDeviceAdded(acctNum, deviceNum)"
 
 !SLIDE transition=blindY
 # Create Specialized Exceptions
@@ -304,14 +314,16 @@ Do Not Expose Your Actors
 * Actors die
 * Doesn't prevent someone from calling into an actor with another thread
 * Akka solves this with the ActorRef abstraction
+* Erlang solves this with PIDs
 
 !SLIDE transition=blindY
 # Never Publish "this"
-.notes Don't even hand out closures with ‘this’ outer reference; especially take care with Future callbacks.  Copying to local vals helps.
+.notes Don't ever hand out closures with ‘this’ outer reference; especially take care with Future callbacks.  Copying to local vals helps.
 
 * Don't send it anywhere
 * Don't register it anywhere
 * Particularly with future callbacks
+* Avoid closing over "sender" in Akka, it will change with the next message
 
 !SLIDE transition=blindY
 # Use Immutable Messages
@@ -326,10 +338,13 @@ Do Not Expose Your Actors
 
 * Data can escape your scope
 * Copy the data and pass that, as Erlang does (COW)
+* Akka has STM references
 
 !SLIDE transition=blindY
 # Avoid Sending Behavior
+.notes Jonas isn't a big fan of sending "become" partial functions to actors, though Joe Armstrong likes it a great deal.
 
+* Unless using Agents, of course
 * Closures make this possible (and easy)
 * Also makes it easy for state to escape
 
@@ -344,6 +359,8 @@ Make Debugging Easier
 
 * Use external functions to encapsulate business logic
 * Easier to unit test outside of actor context
+* Not a rule of thumb, but something to consider as complexity increases
+* Not as big of an issue with Akka's TestKit
 
 !SLIDE transition=blindY
 # Use Semantically Useful Logging
@@ -351,6 +368,7 @@ Make Debugging Easier
 
 * Trace-level logs should have output that you can read easily
 * Use line-breaks and indentation
+* Both Akka and Erlang support hooking in multiple listeners to the event log stream
 
 !SLIDE transition=blindY
 # Unique IDs for Messages
@@ -359,13 +377,16 @@ Make Debugging Easier
 * Allows you to track message flow
 * When you find a problem, get the ID of the message that led to it
 * Use the ID to grep your logs and display output just for that message flow
+* Akka ensures ordering on a per actor basis, also in logging
 
 !SLIDE transition=blindY
 # Monitor Everything
 .notes It will hurt much more to try to add this in later.
 
 * Do it from the start
-* Use tools like JMX and Typesafe Console to monitor everything
+* Use tools like JMX MBeans to visualize actor realization
+* The Atmos/Typesafe Console to monitor everything
+	* Doesn't require you to do anything up front
 * Visual representations of actor systems at runtime are invaluable
 
 !SLIDE transition=blindY
