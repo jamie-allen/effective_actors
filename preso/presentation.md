@@ -14,7 +14,7 @@ github.com/jamie-allen
 !SLIDE transition=blindY
 # Groundwork - What Are Actors?
 
-* Concurrent processes that communicate by exchanging messages
+* Concurrent lightweight processes that communicate through asynchronous message passing
 * Isolation of state, no internal concurrency
 
 <img src="actors.png" class="illustration" note="final slash needed"/>
@@ -108,11 +108,21 @@ Actors Should Only Do One Thing
 * Debugging becomes very difficult
 
 !SLIDE transition=blindY
-# Supervision
+# Actor Behavior
 
+* Actors handling messages should only:
+	* handle messages
+	* Delegate messages
+	* Forward messages
+	* Supervise supervisors under them
+
+!SLIDE transition=blindY
+# Supervision
+.notes Any actor with child actors is responsible for supervising them, even if those child actors are supervisors themselves.  You shouldn't necessarily let that parent actor try to supervise all actors below it, but try to create "failure zones" by actor type.  If a Customer actor has multiple devices and multiple accounts below it, it should have a DeviceSupervisor and an AccountSupervisor between them, not supervise all directly.
+
+* Every non-leaf node is technically a supervisor
+* Create explicit supervisors under each node for each type of child to be managed
 * Supervisors should do nothing except manage their actors
-* Actors handling messages should only handle messages
-* Create a supervisor at every level of your hierarchy
 
 !SLIDE transition=blindY
 # Conflated Supervisors
@@ -130,6 +140,20 @@ Actors Should Only Do One Thing
 * Limit the number of supervisors you create in it
 * Helps with fault tolerance and explicit handling of errors through the hierarchy
 * Akka uses synchronous messaging to create top-level actors
+
+# Failure Zones
+
+* Create "sandboxes" your actor system
+	* Multiple isolated zones with their own dispatcher
+	* Protects thread pools to prevent starvation
+	* Prevents issues in one branch from affecting another
+
+!SLIDE transition=blindY
+# Takeaway
+.notes Shallow trees mean you may be trying to do too much with too few actors.
+
+* For reasonably complex actor systems, shallow trees are a smell test
+* Actors are cheap.  Use them.
 
 !SLIDE transition=blindY
 # RULE
@@ -167,7 +191,7 @@ Never Block in an Actor
 	  def receive = {
 	    case s: SumSequence => sender ! (
 	      try { s.ints.reduce(_ + _) }
-	      catch { case x => Status.Failure(x) })
+	      catch { case NonFatal(e) => log.error(e, "Non-fatal exception")
 	  }
 	}
 
