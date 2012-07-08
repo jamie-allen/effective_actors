@@ -255,6 +255,8 @@ Do Not Optimize Prematurely
 * Add mutability in hot spots (CAS and STM)
 * Add explicit locking and threads
 
+<img src="jonas.jpg" class="illustration" note="final slash needed"/>
+
 !SLIDE transition=blindY
 # Prepare for Race Conditions
 
